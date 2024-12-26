@@ -1,0 +1,507 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchemas-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>ecommerce-microservices</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>user-service</module>
+        <module>product-service</module>
+        <module>order-service</module>
+        <module>inventory-service</module>
+        <module>payment-service</module>
+        <module>gateway-service</module>
+        <module>eureka-server</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Cloud 依赖 -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>Hoxton.SR12</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Boot 依赖 -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>2.4.13</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- 其他通用依赖管理 -->
+        </dependencies>
+    </dependencyManagement>
+</project>
+```
+
+#### 2. 创建服务注册中心（Eureka Server）
+创建 `eureka-server` 子模块，添加以下依赖到 `pom.xml`：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchemas-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>ecommerce-microservices</artifactId>
+        <groupId>com.example</groupId>
+        <version>1.0.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>eureka-server</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+然后创建启动类 `EurekaServerApplication.java`：
+
+```java
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
+
+@SpringBootApplication
+@EnableEurekaServer
+public class EurekaServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(EurekaServerApplication.class, args);
+    }
+}
+```
+
+在 `application.yml` 配置文件中配置 Eureka Server 的相关属性，例如端口、服务注册相关设置等：
+
+```yaml
+server:
+  port: 8761
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    registerWithEureka: false
+    fetchRegistry: false
+    serviceUrl:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+```
+
+#### 3. 创建用户服务（User Service）
+在 `user-service` 子模块中，添加依赖到 `pom.xml`：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchemas-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>ecommerce-microservices</artifactId>
+        <groupId>com.example</groupId>
+        <version>1.0.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>user-service</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <!-- 数据库相关依赖（假设使用 MySQL） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.26</version>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+创建用户实体类 `User.java`：
+
+```java
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+
+@Entity
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String username;
+    private String password;
+    private String email;
+    // 其他用户相关属性及对应的 getter、setter 方法
+    //...
+}
+```
+
+创建用户服务接口 `UserService.java` 及实现类 `UserServiceImpl.java`，示例如下：
+
+```java
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+public interface UserService {
+    User saveUser(User user);
+    User getUserById(Long id);
+    List<User> getAllUsers();
+    User updateUser(User user);
+    void deleteUser(Long id);
+}
+
+@Service
+public class UserServiceImpl implements UserService {
+    private final UserRepository userRepository;
+
+    public UserServiceImpl(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    public User saveUser(User user) {
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User getUserById(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    @Override
+    public User updateUser(User user) {
+        return userRepository.save(user);
+    }
+
+    @Override
+    public void deleteUser(Long id) {
+        userRepository.deleteById(id);
+    }
+}
+```
+
+创建用户资源控制器 `UserController.java`，用于对外提供 RESTful API 接口：
+
+```java
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/users")
+public class UserController {
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+
+    // 创建用户
+    @PostMapping
+    public ResponseEntity<User> createUser(@RequestBody User user) {
+        User savedUser = userService.saveUser(user);
+        return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
+    }
+
+    // 获取单个用户
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUser(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+        if (user!= null) {
+            return new ResponseEntity<>(user, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // 获取所有用户
+    @GetMapping
+    public ResponseEntity<List<User>> getUsers() {
+        List<User> users = userService.getAllUsers();
+        return new ResponseEntity<>(users, HttpStatus.OK);
+    }
+
+    // 更新用户信息
+    @PutMapping("/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+        user.setId(id);
+        User updatedUser = userService.updateUser(user);
+        if (updatedUser!= null) {
+            return new ResponseEntity<>(updatedUser, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // 删除用户
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+}
+```
+
+在 `application.yml` 配置文件中配置服务名称、端口以及 Eureka 相关注册信息等：
+
+```yaml
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/ecommerce_user?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cdriver-java
+server:
+  port: 8081
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+    registerWithEureka: true
+    fetchRegistry: true
+```
+
+#### 4. 创建商品服务（Product Service）
+类似用户服务，在 `product-service` 子模块中添加相应依赖到 `pom.xml`，并创建商品实体类（如 `Product.java` 包含商品名称、价格、库存等属性）、服务接口（`ProductService.java`）及其实现类（`ProductServiceImpl.java`）、商品资源控制器（`ProductController.java`）等，以下是简单示例：
+
+```java
+// Product.java 商品实体类示例
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+
+@Entity
+public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+    private BigDecimal price;
+    private Integer stock;
+    // 其他属性及 getter、setter 方法
+    //...
+}
+
+// ProductService.java 商品服务接口示例
+import java.util.List;
+
+public interface ProductService {
+    Product saveProduct(Product product);
+    Product getProductById(Long id);
+    List<Product> getProducts();
+    Product updateProduct(Product product);
+    void deleteProduct(Long id);
+}
+
+// ProductServiceImpl.java 商品服务实现类示例
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service
+public class ProductServiceImpl implements ProductService {
+    private final ProductRepository productRepository;
+
+    public ProductServiceImpl(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+    @Override
+    public Product saveProduct(Product product) {
+        return productRepository.save(product);
+    }
+
+    @Override
+    public Product getProductById(Long id) {
+        return productRepository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<Product> getProducts() {
+        return productRepository.findAll();
+    }
+
+    @Override
+    public Product updateProduct(Product product) {
+        return productRepository.save(product);
+    }
+
+    @Override
+    public void deleteProduct(Long id) {
+        productRepository.deleteById(id);
+    }
+}
+
+// ProductController.java 商品资源控制器示例
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/products")
+public class ProductController {
+    private final ProductService productService;
+
+    public ProductController(ProductService productService) {
+        this.productService = productService;
+    }
+
+    // 创建商品
+    @PostMapping
+    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+        Product savedProduct = productService.saveProduct(product);
+        return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
+    }
+
+    // 获取单个商品
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getProduct(@PathVariable Long id) {
+        Product product = productService.getProductById(id);
+        if (product!= null) {
+            return new ResponseEntity<>(product, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // 获取所有商品
+    @GetMapping
+    public ResponseEntity<List<Product>> getProducts() {
+        List<Product> products = productService.getProducts();
+        return new ResponseEntity<>(products, HttpStatus.OK);
+    }
+
+    // 更新商品信息
+    @PutMapping("/{id}")
+    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
+        product.setId(id);
+        Product updatedProduct = productService.updateProduct(product);
+        if (updatedProduct!= null) {
+            return new ResponseEntity<>(updatedProduct, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // 删除商品
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        productService.deleteProduct(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+}
+```
+
+在 `application.yml` 配置文件中配置服务相关信息（服务名、端口、Eureka 注册等），这里假设服务端口为 `8082`，服务名称为 `product-service`。
+
+#### 5. 创建订单服务（Order Service）
+在 `order-service` 子模块中完成类似的代码结构搭建，包含订单实体类（如 `Order.java`，关联用户、商品、订单状态、金额等信息）、订单服务接口（`OrderService.java`）及其实现类（`OrderServiceImpl.java`）、订单资源控制器（`OrderController.java`）等，并且由于订单服务可能涉及到多个其他服务的调用以及分布式事务处理（例如创建订单时要扣减库存、可能涉及支付等操作），需要引入合适的分布式事务框架（如 Seata），以下是简化示例代码：
+
+```java
+// Order.java 订单实体类示例
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import java.util.Date;
+
+@Entity
+public class Order {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private Long userId;
+    private Long productId;
+    private Date orderDate;
+    private String status;
+    private BigDecimal totalAmount;
+    // 其他属性及 getter、setter 方法
+    //...
+}
+
+// OrderService.java 订单服务接口示例
+import java.util.List;
+
+public interface OrderService {
+    Order createOrder(Order order);
+    Order getOrderById(Long id);
+    List<Order> getOrdersByUserId(Long userId);
+    Order updateOrderStatus(Order order);
+}
+
+// OrderServiceImpl.java 订单服务实现类示例
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service
+public class OrderServiceImpl implements OrderService {
+    private final OrderRepository orderRepository;
+    private final UserService userService;
+    private final ProductService productService;
+    private final InventoryService inventoryService;
+    private final PaymentService paymentService;
+
+    public OrderServiceImpl(OrderRepository orderRepository, UserService userService,
+                            ProductService productService, InventoryService inventoryService,
+                            PaymentService paymentService) {
+        this.orderRepository = orderRepository;
+        this.userService = userService;
+        this.productService = productService;
+        this.inventoryService = inventoryService;
+        this.paymentService = paymentService;
+    }
+
+    @Override
+    public Order createOrder(Order order) {
+        // 此处可以添加业务逻辑，比如验证用户是否存在、商品是否有库存等
+        // 调用库存服务扣减库存
+        inventoryService.decreaseStock(order.getProductId(), 1);
+        // 调用支付服务进行支付（这里简化，实际可能更复杂）
+        paymentService.pay(order.getTotalAmount());
+        return orderRepository.save(order);
+    }
+
+    @Override
+    public Order getOrderById(Long id) {
+        return orderRepository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<Order> getOrdersByUserId(Long userId) {
+        return orderRepository.findByUserId(userId);
+    }
+
+    @Override
+    public Order updateOrderStatus(Order order)
